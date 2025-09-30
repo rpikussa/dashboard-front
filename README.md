@@ -74,8 +74,8 @@ Infrastructure/
 ### Instalação
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/rpikussa/dashboard_front.git
-cd dashboard_front
+git clone https://github.com/rpikussa/dashboard-front.git
+cd dashboard-front
 
 # 2. Instalar dependências
 npm install
