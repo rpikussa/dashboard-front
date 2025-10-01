@@ -52,22 +52,13 @@ jobs:
           # Configure static website hosting
           aws s3 website s3://$S3_BUCKET --index-document index.html --error-document index.html
           
-          # Set bucket policy for public read
-          cat > bucket-policy.json << EOF
-        {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Sid": "PublicReadGetObject",
-              "Effect": "Allow",
-              "Principal": "*",
-              "Action": "s3:GetObject",
-              "Resource": "arn:aws:s3:::$S3_BUCKET/*"
-            }
-          ]
-        }
-        EOF
-          aws s3api put-bucket-policy --bucket $S3_BUCKET --policy file://bucket-policy.json
+          echo "⚠️  MANUAL STEP REQUIRED:"
+          echo "   1. Go to AWS S3 Console"
+          echo "   2. Select bucket: $S3_BUCKET"
+          echo "   3. Go to Permissions > Block public access"
+          echo "   4. Uncheck all 4 options and save"
+          echo "   5. Go to Bucket policy and add public read policy"
+          echo "   6. Add S3_BUCKET=$S3_BUCKET to GitHub secrets"
         fi
 
         # Check if CloudFront distribution exists
@@ -81,68 +72,9 @@ jobs:
             --query 'Distribution.DomainName' \
             --output text)
         else
-          echo "⚡ Creating CloudFront distribution..."
-          
-          # Create CloudFront distribution config
-          cat > cloudfront-config.json << EOF
-        {
-          "CallerReference": "$PROJECT_NAME-$(date +%s)",
-          "Comment": "Dashboard Frontend - Auto-created by GitHub Actions",
-          "DefaultCacheBehavior": {
-            "TargetOriginId": "$S3_BUCKET",
-            "ViewerProtocolPolicy": "redirect-to-https",
-            "TrustedSigners": {"Enabled": false, "Quantity": 0},
-            "ForwardedValues": {"QueryString": false, "Cookies": {"Forward": "none"}},
-            "MinTTL": 0, "DefaultTTL": 0, "MaxTTL": 0,
-            "Compress": true
-          },
-          "CacheBehaviors": {
-            "Quantity": 1,
-            "Items": [{
-              "PathPattern": "/assets/*",
-              "TargetOriginId": "$S3_BUCKET",
-              "ViewerProtocolPolicy": "redirect-to-https",
-              "TrustedSigners": {"Enabled": false, "Quantity": 0},
-              "ForwardedValues": {"QueryString": false, "Cookies": {"Forward": "none"}},
-              "MinTTL": 31536000, "DefaultTTL": 31536000, "MaxTTL": 31536000,
-              "Compress": true
-            }]
-          },
-          "Origins": {
-            "Quantity": 1,
-            "Items": [{
-              "Id": "$S3_BUCKET",
-              "DomainName": "$S3_BUCKET.s3-website-${{ env.AWS_REGION }}.amazonaws.com",
-              "CustomOriginConfig": {
-                "HTTPPort": 80, "HTTPSPort": 443,
-                "OriginProtocolPolicy": "http-only"
-              }
-            }]
-          },
-          "Enabled": true,
-          "PriceClass": "PriceClass_100",
-          "CustomErrorResponses": {
-            "Quantity": 2,
-            "Items": [
-              {"ErrorCode": 404, "ResponsePagePath": "/index.html", "ResponseCode": "200", "ErrorCachingMinTTL": 300},
-              {"ErrorCode": 403, "ResponsePagePath": "/index.html", "ResponseCode": "200", "ErrorCachingMinTTL": 300}
-            ]
-          }
-        }
-        EOF
-
-          # Create CloudFront distribution
-          CLOUDFRONT_ID=$(aws cloudfront create-distribution \
-            --distribution-config file://cloudfront-config.json \
-            --query 'Distribution.Id' \
-            --output text)
-          
-          CLOUDFRONT_DOMAIN=$(aws cloudfront get-distribution \
-            --id $CLOUDFRONT_ID \
-            --query 'Distribution.DomainName' \
-            --output text)
-          
-          echo "⚡ Created CloudFront distribution: $CLOUDFRONT_ID"
+          echo "⚡ Please create CloudFront distribution manually or add CLOUDFRONT_DISTRIBUTION_ID to secrets"
+          CLOUDFRONT_ID="MANUAL_SETUP_REQUIRED"
+          CLOUDFRONT_DOMAIN="MANUAL_SETUP_REQUIRED"
         fi
 
         # Output for next job
@@ -151,7 +83,7 @@ jobs:
         echo "cloudfront-domain=$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
         
         # Summary
-        echo "🏗️ Infrastructure Ready:"
+        echo "🏗️ Infrastructure Status:"
         echo "📦 S3 Bucket: $S3_BUCKET"
         echo "⚡ CloudFront ID: $CLOUDFRONT_ID"
         echo "🌐 Domain: $CLOUDFRONT_DOMAIN"
