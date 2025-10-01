@@ -162,30 +162,51 @@ jobs:
 
     - name: ⚡ Invalidate CloudFront cache
       run: |
-        echo "🔄 Invalidating CloudFront cache..."
-        INVALIDATION_ID=$(aws cloudfront create-invalidation \
-          --distribution-id ${{ needs.infrastructure.outputs.cloudfront-id }} \
-          --paths "/*" \
-          --query 'Invalidation.Id' \
-          --output text)
-        echo "⏳ Invalidation ID: $INVALIDATION_ID"
-        echo "⚡ CloudFront cache will be cleared in ~5-10 minutes"
+        CLOUDFRONT_ID="${{ needs.infrastructure.outputs.cloudfront-id }}"
+        
+        if [ "$CLOUDFRONT_ID" != "MANUAL_SETUP_REQUIRED" ] && [ -n "$CLOUDFRONT_ID" ]; then
+          echo "🔄 Invalidating CloudFront cache..."
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id $CLOUDFRONT_ID \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "⏳ Invalidation ID: $INVALIDATION_ID"
+          echo "⚡ CloudFront cache will be cleared in ~5-10 minutes"
+        else
+          echo "⚠️  CloudFront invalidation skipped:"
+          echo "   CloudFront distribution not configured or manual setup required"
+          echo "   Add CLOUDFRONT_DISTRIBUTION_ID=E1I1G8B7AJRAFQ to GitHub secrets"
+          echo "   Your actual CloudFront ID: E1I1G8B7AJRAFQ"
+        fi
 
     - name: ✅ Verify deployment
       run: |
         echo "🔍 Verifying deployment..."
         
+        CLOUDFRONT_ID="${{ needs.infrastructure.outputs.cloudfront-id }}"
+        CLOUDFRONT_DOMAIN="${{ needs.infrastructure.outputs.cloudfront-domain }}"
+        
         echo "📊 Deployment Summary:"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "🪣 S3 Bucket: ${{ needs.infrastructure.outputs.s3-bucket }}"
-        echo "⚡ CloudFront: ${{ needs.infrastructure.outputs.cloudfront-id }}"
-        echo "🌐 URL: https://${{ needs.infrastructure.outputs.cloudfront-domain }}"
+        echo "⚡ CloudFront: $CLOUDFRONT_ID"
+        echo "🌐 S3 Website: http://${{ needs.infrastructure.outputs.s3-bucket }}.s3-website-us-east-1.amazonaws.com"
         echo "📦 Build size: $(du -sh dist/ | cut -f1)"
         echo "⏰ Deploy time: $(date)"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
         echo "✅ Frontend deployed successfully!"
-        echo "🌐 Access your app: https://${{ needs.infrastructure.outputs.cloudfront-domain }}"
-        echo "⚡ CloudFront propagation: 5-15 minutes"
+        
+        if [ "$CLOUDFRONT_ID" != "MANUAL_SETUP_REQUIRED" ] && [ -n "$CLOUDFRONT_ID" ]; then
+          echo "🌐 CloudFront URL: https://$CLOUDFRONT_DOMAIN"
+          echo "⚡ CloudFront propagation: 5-15 minutes"
+        else
+          echo "🌐 S3 Direct Access: http://${{ needs.infrastructure.outputs.s3-bucket }}.s3-website-us-east-1.amazonaws.com"
+          echo ""
+          echo "💡 To enable CloudFront (HTTPS + CDN):"
+          echo "   Add this secret to GitHub: CLOUDFRONT_DISTRIBUTION_ID=E1I1G8B7AJRAFQ"
+          echo "   CloudFront URL: https://d358h03symr9q7.cloudfront.net"
+        fi
         echo ""
         # Note: GitHub Actions will suggest adding secrets for better performance
