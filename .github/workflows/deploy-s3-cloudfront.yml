@@ -114,8 +114,6 @@ jobs:
 
     - name: 🏗️ Build application
       run: npm run build
-      env:
-        VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.seudominio.com' }}
 
     - name: 📊 Display build stats
       run: |
@@ -209,4 +207,4 @@ jobs:
           echo "   CloudFront URL: https://d358h03symr9q7.cloudfront.net"
         fi
         echo ""
-        # Note: GitHub Actions will suggest adding secrets for better performance
+        echo "🚀 Deployment completed successfully!"

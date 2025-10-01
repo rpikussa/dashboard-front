@@ -2,6 +2,8 @@
 
 Sistema de dashboard administrativo moderno desenvolvido com **Vue.js 3** + **Element Plus**, otimizado para **hosting estático** na AWS com **75-85% economia** de custos.
 
+**✅ Status**: Migração concluída com sucesso! Deploy automático ativo com invalidação CloudFront.
+
 ## 💰 **Migração Econômica: ECS → S3 + CloudFront**
 
 | Antes (ECS Fargate) | Depois (S3 + CloudFront) | Economia |

@@ -53,3 +53,4 @@ jobs:
           --output text)
         
         echo "🌐 CloudFront URL: https://$DOMAIN"
+        echo "✅ Manual invalidation completed successfully!"
