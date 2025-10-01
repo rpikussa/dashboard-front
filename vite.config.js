@@ -24,5 +24,17 @@ export default defineConfig({
                 rewrite: (path) => path.replace(/^\/api/, '')
             }
         }
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    vendor: ['vue', 'vue-router', 'pinia'],
+                    ui: ['element-plus', '@element-plus/icons-vue'],
+                    utils: ['axios', 'js-cookie']
+                }
+            }
+        },
+        chunkSizeWarningLimit: 1000
     }
 })

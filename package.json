@@ -13,13 +13,9 @@
         "test:unit": "vitest",
         "lint": "eslint . --fix",
         "format": "prettier --write src/",
-        "docker:build": "docker build -t dashboard-front .",
-        "docker:run": "docker run -p 8080:80 dashboard-front",
-        "docker:dev": "docker-compose up frontend-dev",
-        "docker:prod": "docker-compose up frontend",
-        "aws:setup": "cd aws && ./setup.sh",
-        "deploy:staging": "npm run build && npm run docker:build",
-        "deploy:production": "echo 'Use GitHub Actions for production deployment'"
+        "aws:setup": "./setup-s3-cloudfront.sh",
+        "deploy:staging": "npm run build",
+        "deploy:production": "echo 'Use GitHub Actions for S3 + CloudFront deployment'"
     },
     "dependencies": {
         "@element-plus/icons-vue": "^2.3.2",

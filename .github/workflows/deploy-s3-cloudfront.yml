@@ -1,0 +1,259 @@
+name: Deploy Frontend to AWS S3 + CloudFront
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: '20'
+  PROJECT_NAME: dashboard-front
+
+jobs:
+  infrastructure:
+    runs-on: ubuntu-latest
+    outputs:
+      s3-bucket: ${{ steps.setup-infra.outputs.s3-bucket }}
+      cloudfront-id: ${{ steps.setup-infra.outputs.cloudfront-id }}
+      cloudfront-domain: ${{ steps.setup-infra.outputs.cloudfront-domain }}
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🏗️ Setup Infrastructure (Create if not exists)
+      id: setup-infra
+      run: |
+        # Check if S3 bucket exists (from secrets or create new)
+        if [ -n "${{ secrets.S3_BUCKET }}" ]; then
+          S3_BUCKET="${{ secrets.S3_BUCKET }}"
+          echo "📦 Using existing S3 bucket: $S3_BUCKET"
+        else
+          S3_BUCKET="${PROJECT_NAME}-static-$(date +%s)"
+          echo "📦 Creating new S3 bucket: $S3_BUCKET"
+          
+          # Create S3 bucket
+          aws s3 mb s3://$S3_BUCKET --region ${{ env.AWS_REGION }}
+          
+          # Configure static website hosting
+          aws s3 website s3://$S3_BUCKET --index-document index.html --error-document index.html
+          
+          # Set bucket policy for public read
+          cat > bucket-policy.json << EOF
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "PublicReadGetObject",
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "s3:GetObject",
+              "Resource": "arn:aws:s3:::$S3_BUCKET/*"
+            }
+          ]
+        }
+        EOF
+          aws s3api put-bucket-policy --bucket $S3_BUCKET --policy file://bucket-policy.json
+        fi
+
+        # Check if CloudFront distribution exists
+        if [ -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
+          CLOUDFRONT_ID="${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"
+          echo "⚡ Using existing CloudFront distribution: $CLOUDFRONT_ID"
+          
+          # Get CloudFront domain
+          CLOUDFRONT_DOMAIN=$(aws cloudfront get-distribution \
+            --id $CLOUDFRONT_ID \
+            --query 'Distribution.DomainName' \
+            --output text)
+        else
+          echo "⚡ Creating CloudFront distribution..."
+          
+          # Create CloudFront distribution config
+          cat > cloudfront-config.json << EOF
+        {
+          "CallerReference": "$PROJECT_NAME-$(date +%s)",
+          "Comment": "Dashboard Frontend - Auto-created by GitHub Actions",
+          "DefaultCacheBehavior": {
+            "TargetOriginId": "$S3_BUCKET",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "TrustedSigners": {"Enabled": false, "Quantity": 0},
+            "ForwardedValues": {"QueryString": false, "Cookies": {"Forward": "none"}},
+            "MinTTL": 0, "DefaultTTL": 0, "MaxTTL": 0,
+            "Compress": true
+          },
+          "CacheBehaviors": {
+            "Quantity": 1,
+            "Items": [{
+              "PathPattern": "/assets/*",
+              "TargetOriginId": "$S3_BUCKET",
+              "ViewerProtocolPolicy": "redirect-to-https",
+              "TrustedSigners": {"Enabled": false, "Quantity": 0},
+              "ForwardedValues": {"QueryString": false, "Cookies": {"Forward": "none"}},
+              "MinTTL": 31536000, "DefaultTTL": 31536000, "MaxTTL": 31536000,
+              "Compress": true
+            }]
+          },
+          "Origins": {
+            "Quantity": 1,
+            "Items": [{
+              "Id": "$S3_BUCKET",
+              "DomainName": "$S3_BUCKET.s3-website-${{ env.AWS_REGION }}.amazonaws.com",
+              "CustomOriginConfig": {
+                "HTTPPort": 80, "HTTPSPort": 443,
+                "OriginProtocolPolicy": "http-only"
+              }
+            }]
+          },
+          "Enabled": true,
+          "PriceClass": "PriceClass_100",
+          "CustomErrorResponses": {
+            "Quantity": 2,
+            "Items": [
+              {"ErrorCode": 404, "ResponsePagePath": "/index.html", "ResponseCode": "200", "ErrorCachingMinTTL": 300},
+              {"ErrorCode": 403, "ResponsePagePath": "/index.html", "ResponseCode": "200", "ErrorCachingMinTTL": 300}
+            ]
+          }
+        }
+        EOF
+
+          # Create CloudFront distribution
+          CLOUDFRONT_ID=$(aws cloudfront create-distribution \
+            --distribution-config file://cloudfront-config.json \
+            --query 'Distribution.Id' \
+            --output text)
+          
+          CLOUDFRONT_DOMAIN=$(aws cloudfront get-distribution \
+            --id $CLOUDFRONT_ID \
+            --query 'Distribution.DomainName' \
+            --output text)
+          
+          echo "⚡ Created CloudFront distribution: $CLOUDFRONT_ID"
+        fi
+
+        # Output for next job
+        echo "s3-bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
+        echo "cloudfront-id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
+        echo "cloudfront-domain=$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
+        
+        # Summary
+        echo "🏗️ Infrastructure Ready:"
+        echo "📦 S3 Bucket: $S3_BUCKET"
+        echo "⚡ CloudFront ID: $CLOUDFRONT_ID"
+        echo "🌐 Domain: $CLOUDFRONT_DOMAIN"
+
+  deploy:
+    needs: infrastructure
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: 📦 Install dependencies
+      run: npm ci
+
+    - name: 🧪 Run tests
+      run: npm run test:unit
+
+    - name: 🏗️ Build application
+      run: npm run build
+      env:
+        VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.seudominio.com' }}
+
+    - name: 📊 Display build stats
+      run: |
+        echo "📦 Build completed successfully!"
+        echo "📁 Build size:"
+        du -sh dist/
+        echo "📄 Generated files:"
+        find dist/ -type f -name "*.js" -o -name "*.css" -o -name "*.html" | head -10
+
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🗑️ Clean old files from S3
+      run: |
+        echo "🧹 Cleaning old files from S3..."
+        aws s3 rm s3://${{ needs.infrastructure.outputs.s3-bucket }}/ --recursive --exclude "index.html"
+
+    - name: ⬆️ Sync static assets to S3 (with long cache)
+      run: |
+        echo "📤 Uploading static assets with 1-year cache..."
+        aws s3 sync dist/assets/ s3://${{ needs.infrastructure.outputs.s3-bucket }}/assets/ \
+          --cache-control "public,max-age=31536000,immutable" \
+          --metadata-directive REPLACE
+
+    - name: ⬆️ Upload other files to S3 (with short cache)
+      run: |
+        echo "📤 Uploading other files..."
+        aws s3 sync dist/ s3://${{ needs.infrastructure.outputs.s3-bucket }}/ \
+          --exclude "assets/*" \
+          --exclude "index.html" \
+          --cache-control "public,max-age=3600" \
+          --metadata-directive REPLACE
+
+    - name: ⬆️ Upload index.html (no cache)
+      run: |
+        echo "📤 Uploading index.html with no cache..."
+        aws s3 cp dist/index.html s3://${{ needs.infrastructure.outputs.s3-bucket }}/index.html \
+          --cache-control "public,max-age=0,must-revalidate" \
+          --metadata-directive REPLACE
+
+    - name: ⚡ Invalidate CloudFront cache
+      run: |
+        echo "🔄 Invalidating CloudFront cache..."
+        INVALIDATION_ID=$(aws cloudfront create-invalidation \
+          --distribution-id ${{ needs.infrastructure.outputs.cloudfront-id }} \
+          --paths "/*" \
+          --query 'Invalidation.Id' \
+          --output text)
+        echo "⏳ Invalidation ID: $INVALIDATION_ID"
+        echo "⚡ CloudFront cache will be cleared in ~5-10 minutes"
+
+    - name: ✅ Verify deployment
+      run: |
+        echo "🔍 Verifying deployment..."
+        
+        echo "📊 Deployment Summary:"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🪣 S3 Bucket: ${{ needs.infrastructure.outputs.s3-bucket }}"
+        echo "⚡ CloudFront: ${{ needs.infrastructure.outputs.cloudfront-id }}"
+        echo "🌐 URL: https://${{ needs.infrastructure.outputs.cloudfront-domain }}"
+        echo "📦 Build size: $(du -sh dist/ | cut -f1)"
+        echo "⏰ Deploy time: $(date)"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "✅ Frontend deployed successfully!"
+        echo "🌐 Access your app: https://${{ needs.infrastructure.outputs.cloudfront-domain }}"
+        echo "⚡ CloudFront propagation: 5-15 minutes"
+        echo ""
+        # Note: GitHub Actions will suggest adding secrets for better performance
