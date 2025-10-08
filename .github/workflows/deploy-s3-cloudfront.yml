@@ -39,8 +39,8 @@ jobs:
       id: setup-infra
       run: |
         # Check if S3 bucket exists (from secrets or create new)
-        if [ -n "${{ secrets.S3_BUCKET }}" ]; then
-          S3_BUCKET="${{ secrets.S3_BUCKET }}"
+        S3_BUCKET="$S3_BUCKET"
+        if [ -n "$S3_BUCKET" ]; then
           echo "📦 Using existing S3 bucket: $S3_BUCKET"
         else
           S3_BUCKET="${PROJECT_NAME}-static-$(date +%s)"

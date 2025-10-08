@@ -1,9 +1,11 @@
 # Copilot Instructions for AI Agents - Frontend Vue.js
 
 ## Visão Geral do Projeto
-- SPA (Single Page Application) Vue.js 3 com Vite, Element Plus para UI
+- SPA (Single Page Application) Vue.js 3 com Vite 7, Element Plus para UI
 - Aplicação companion: backend API (`dashboard-auth`) fornece autenticação
-- Arquitetura: `src/views/` (páginas), `src/components/` (componentes reutilizáveis), `src/stores/` (Pinia), `src/services/` (API calls), `src/router/` (Vue Router)
+- **Arquitetura de Deploy**: Migrado de ECS Fargate → **S3 + CloudFront** (75-85% economia de custos)
+- **Estrutura**: `src/views/` (páginas), `src/components/` (componentes reutilizáveis), `src/stores/` (Pinia), `src/services/` (API calls), `src/router/` (Vue Router)
+- **Deployment**: Infraestrutura automática via GitHub Actions
 
 ## Rotas e Navegação
 - `/` → redireciona para `/dashboard`
@@ -24,6 +26,7 @@
 - Axios interceptors em `src/services/api.js`:
   - Request: adiciona `Authorization: Bearer <token>` automaticamente
   - Response: 401 → logout automático
+- **Produção**: CORS configurado para aceitar CloudFront URL
 
 ## Convenções e Padrões
 - Use Composition API (`<script setup>`) em novos componentes
@@ -53,6 +56,8 @@
 - Build produção: `npm run build`
 - Testes: `npm run test:unit` (Vitest)
 - Lint: `npm run lint` (ESLint)
+- **Setup AWS**: `npm run aws:setup` (script automatizado)
+- **Deploy**: Push para `main` → deploy automático via GitHub Actions
 
 ## Configuração de Ambiente
 - Variáveis no `.env` (opcional):
@@ -74,6 +79,8 @@
 - `axios`: cliente HTTP
 - `js-cookie`: manipulação de cookies
 - `element-plus`: biblioteca de componentes UI
+- `@element-plus/icons-vue`: ícones Element Plus (auto-registrados)
+- `chart.js` + `vue-chartjs`: gráficos interativos
 - `vite`: build tool e dev server
 
 ## Padrões de Formulários
@@ -88,3 +95,75 @@
 - Atualize o store de auth quando necessário
 - Para novas páginas, configure rota + guard apropriado
 - Trate estados de loading e erro adequadamente
+
+## Arquitetura de Deploy (S3 + CloudFront)
+
+### Migração Realizada
+- **Antes**: ECS Fargate ($60-85/mês) - containers gerenciados
+- **Depois**: S3 + CloudFront ($5-15/mês) - hosting estático serverless
+- **Economia**: 75-85% redução de custos
+- **Performance**: CDN global com <100ms latência mundial
+
+### Infraestrutura Automática
+- **Setup**: `./setup-s3-cloudfront.sh` - cria infraestrutura AWS automaticamente
+- **CI/CD**: `.github/workflows/deploy-s3-cloudfront.yml` - deploy automático
+- **Build**: Bundle splitting otimizado (vendor, ui, utils chunks)
+- **Cache**: CloudFront com cache estratégico por tipo de arquivo
+
+### Scripts de Deploy
+```bash
+npm run aws:setup        # Setup inicial da infraestrutura AWS
+npm run build           # Build otimizado com chunks
+npm run deploy:staging  # Build para staging
+npm run deploy:production # Via GitHub Actions (automático)
+```
+
+### GitHub Actions Secrets Necessários
+```
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+# Opcionais (para performance):
+S3_BUCKET=dashboard-front-static-xxxxx
+CLOUDFRONT_DISTRIBUTION_ID=E1234567890ABC
+```
+
+### Workflow de Deploy
+1. Push para `main` → dispara workflow automaticamente
+2. Job `infrastructure`: verifica/cria S3 bucket e CloudFront
+3. Job `deploy`: testes → build → upload S3 → invalidação CloudFront
+4. Deploy completo em 2-5 minutos vs 10-15 minutos do ECS
+
+## Otimizações de Performance
+
+### Bundle Splitting (vite.config.js)
+- **vendor**: Vue core libraries (~105KB)
+- **ui**: Element Plus components (~1MB) 
+- **utils**: Axios, cookies, etc (~37KB)
+- Cache de 1 ano para assets versionados
+
+### Cache Strategy CloudFront
+- `/assets/*`: Cache 1 ano (immutable)
+- `*.js, *.css`: Cache 1 ano (versionados pelo Vite)
+- `index.html`: Sem cache (sempre atualizado)
+- Outros arquivos: Cache 1 hora
+
+### Environment Variables
+```env
+# Desenvolvimento (.env.development)
+VITE_API_URL=http://localhost:3000
+
+# Produção (.env.production)  
+VITE_API_URL=https://api.yourdomain.com
+VITE_APP_TITLE=Dashboard Admin
+VITE_ENVIRONMENT=production
+```
+
+## Arquivos Arquivados
+- `archive/ecs-infrastructure/`: infraestrutura Docker/ECS antiga
+- `archive/README.md`: documentação da migração
+- Mantidos para referência e possível rollback de emergência
+
+## Node.js Requirements
+- **Versão obrigatória**: Node.js 20+ (necessário para Vite 7)
+- **Engines**: especificado em package.json (`^20.19.0 || >=22.12.0`)
+- **Desenvolvimento**: `npm run dev` na porta 8080 (não 5173)
