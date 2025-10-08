@@ -41,9 +41,9 @@ jobs:
         # =========================
         # S3 Bucket Resolution
         # Prioridades:
-        # 1. Secret S3_BUCKET
+        # 1. Secret S3_BUCKET (recomendado: dashboard-front-static-prod)
         # 2. Variável já exportada no ambiente
-        # 3. Nome determinístico baseado no projeto
+        # 3. Nome determinístico baseado no projeto (dashboard-front-static-prod)
         # =========================
         if [ -n "${{ secrets.S3_BUCKET }}" ]; then
           S3_BUCKET="${{ secrets.S3_BUCKET }}"
@@ -51,7 +51,8 @@ jobs:
           S3_BUCKET="$S3_BUCKET"
         else
           # Nome determinístico (sem timestamp) para evitar recriação
-          S3_BUCKET="${PROJECT_NAME}-static"
+          # IMPORTANTE: Deve corresponder ao bucket existente na AWS
+          S3_BUCKET="${PROJECT_NAME}-static-prod"
         fi
 
         echo "📦 Bucket alvo: $S3_BUCKET"
@@ -208,19 +209,35 @@ jobs:
     - name: 🗑️ Clean old files from S3
       run: |
         echo "🧹 Cleaning old files from S3..."
-        aws s3 rm s3://${{ needs.infrastructure.outputs.s3-bucket }}/ --recursive --exclude "index.html"
+        BUCKET_NAME="${{ needs.infrastructure.outputs.s3-bucket }}"
+        
+        if [ -z "$BUCKET_NAME" ]; then
+          echo "❌ Error: Bucket name is empty!"
+          echo "Available outputs:"
+          echo "S3 Bucket: '${{ needs.infrastructure.outputs.s3-bucket }}'"
+          echo "CloudFront ID: '${{ needs.infrastructure.outputs.cloudfront-id }}'"
+          echo "CloudFront Domain: '${{ needs.infrastructure.outputs.cloudfront-domain }}'"
+          exit 1
+        fi
+        
+        echo "📦 Using bucket: $BUCKET_NAME"
+        aws s3 rm s3://$BUCKET_NAME/ --recursive --exclude "index.html"
 
     - name: ⬆️ Sync static assets to S3 (with long cache)
       run: |
         echo "📤 Uploading static assets with 1-year cache..."
-        aws s3 sync dist/assets/ s3://${{ needs.infrastructure.outputs.s3-bucket }}/assets/ \
+        BUCKET_NAME="${{ needs.infrastructure.outputs.s3-bucket }}"
+        echo "📦 Using bucket: $BUCKET_NAME"
+        aws s3 sync dist/assets/ s3://$BUCKET_NAME/assets/ \
           --cache-control "public,max-age=31536000,immutable" \
           --metadata-directive REPLACE
 
     - name: ⬆️ Upload other files to S3 (with short cache)
       run: |
         echo "📤 Uploading other files..."
-        aws s3 sync dist/ s3://${{ needs.infrastructure.outputs.s3-bucket }}/ \
+        BUCKET_NAME="${{ needs.infrastructure.outputs.s3-bucket }}"
+        echo "📦 Using bucket: $BUCKET_NAME"
+        aws s3 sync dist/ s3://$BUCKET_NAME/ \
           --exclude "assets/*" \
           --exclude "index.html" \
           --cache-control "public,max-age=3600" \
@@ -229,7 +246,9 @@ jobs:
     - name: ⬆️ Upload index.html (no cache)
       run: |
         echo "📤 Uploading index.html with no cache..."
-        aws s3 cp dist/index.html s3://${{ needs.infrastructure.outputs.s3-bucket }}/index.html \
+        BUCKET_NAME="${{ needs.infrastructure.outputs.s3-bucket }}"
+        echo "📦 Using bucket: $BUCKET_NAME"
+        aws s3 cp dist/index.html s3://$BUCKET_NAME/index.html \
           --cache-control "public,max-age=0,must-revalidate" \
           --metadata-directive REPLACE
 
