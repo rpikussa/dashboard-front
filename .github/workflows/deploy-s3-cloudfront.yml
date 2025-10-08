@@ -131,10 +131,24 @@ jobs:
         echo "🔍 Environment will be automatically loaded by Vite during build"
 
     - name: 🏗️ Build application
+      shell: bash
       run: |
         echo "🔨 Building application with production environment..."
-        echo "Vite will automatically load variables from .env.production"
-        npm run build:production
+        echo "Loading environment variables from .env.production..."
+        
+        # Load environment variables from .env.production if script exists
+        if [ -f "./scripts/load-env.sh" ]; then
+          echo "📋 Using load-env.sh script..."
+          source ./scripts/load-env.sh production
+        else
+          echo "📋 Loading .env.production directly..."
+          if [ -f ".env.production" ]; then
+            export $(cat .env.production | grep -v '^#' | xargs)
+          fi
+        fi
+        
+        echo "🔨 Building with npm run build..."
+        npm run build
 
     - name: 📊 Display build stats
       run: |
