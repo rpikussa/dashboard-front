@@ -72,7 +72,9 @@ src/
 └── __tests__/           # Testes unitários
 
 Infrastructure/
-├── setup-s3-cloudfront.sh         # 🆕 Script de setup S3 + CloudFront
+├── scripts/
+│   ├── setup-s3-cloudfront.sh         # 🆕 Script de setup S3 + CloudFront
+│   └── verify-api-config.sh           # 🆕 Script de verificação da API
 ├── .github/workflows/
 │   └── deploy-s3-cloudfront.yml   # 🆕 CI/CD para S3 + CloudFront
 ├── vite.config.js                 # Build otimizado com chunks

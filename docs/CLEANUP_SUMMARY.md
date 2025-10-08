@@ -45,7 +45,8 @@ dashboard-front/
 ├── vite.config.js                # ✅ Build otimizado
 ├── package.json                  # ✅ Scripts atualizados
 ├── README.md                     # ✅ Documentação atualizada
-├── EXECUTIVE_SUMMARY.md          # ✅ Resumo executivo
+├── docs/
+│   └── EXECUTIVE_SUMMARY.md          # ✅ Resumo executivo
 └── archive/                      # 🗂️ Arquivos antigos
     ├── README.md                 # Documentação do arquivo
     └── ecs-infrastructure/       # Infraestrutura ECS (deprecated)

@@ -21,7 +21,9 @@
 - Store Pinia (`useAuthStore`) gerencia estado de autenticação global
 
 ## Integração com Backend API
-- API base: `http://localhost:3000` (configurável via `VITE_API_URL`)
+- **API Gateway descoberta automaticamente**: `https://c10rgiry67.execute-api.us-east-1.amazonaws.com/prod`
+- **Rotas disponíveis**: `/auth/login`, `/auth/register`, `/auth/user/{id}`
+- API base: `http://localhost:3000` (desenvolvimento) / API Gateway real (produção)
 - Proxy Vite: `/api/*` → `localhost:3000` para desenvolvimento
 - Axios interceptors em `src/services/api.js`:
   - Request: adiciona `Authorization: Bearer <token>` automaticamente
@@ -60,10 +62,9 @@
 - **Deploy**: Push para `main` → deploy automático via GitHub Actions
 
 ## Configuração de Ambiente
-- Variáveis no `.env` (opcional):
-  ```
-  VITE_API_URL=http://localhost:3000
-  ```
+- **API Gateway**: Descoberta automaticamente via AWS CLI
+- **Produção**: `VITE_API_URL=https://c10rgiry67.execute-api.us-east-1.amazonaws.com/prod`
+- **Desenvolvimento**: `VITE_API_URL=http://localhost:3000`
 - Proxy automático configurado no `vite.config.js` para desenvolvimento
 
 ## Componentes e Views Existentes
@@ -105,7 +106,7 @@
 - **Performance**: CDN global com <100ms latência mundial
 
 ### Infraestrutura Automática
-- **Setup**: `./setup-s3-cloudfront.sh` - cria infraestrutura AWS automaticamente
+- **Setup**: `./scripts/setup-s3-cloudfront.sh` - cria infraestrutura AWS automaticamente
 - **CI/CD**: `.github/workflows/deploy-s3-cloudfront.yml` - deploy automático
 - **Build**: Bundle splitting otimizado (vendor, ui, utils chunks)
 - **Cache**: CloudFront com cache estratégico por tipo de arquivo
@@ -113,6 +114,7 @@
 ### Scripts de Deploy
 ```bash
 npm run aws:setup        # Setup inicial da infraestrutura AWS
+npm run aws:verify       # Verificação da configuração da API
 npm run build           # Build otimizado com chunks
 npm run deploy:staging  # Build para staging
 npm run deploy:production # Via GitHub Actions (automático)
@@ -153,7 +155,7 @@ CLOUDFRONT_DISTRIBUTION_ID=E1234567890ABC
 VITE_API_URL=http://localhost:3000
 
 # Produção (.env.production)  
-VITE_API_URL=https://api.yourdomain.com
+VITE_API_URL=https://c10rgiry67.execute-api.us-east-1.amazonaws.com/prod
 VITE_APP_TITLE=Dashboard Admin
 VITE_ENVIRONMENT=production
 ```
@@ -162,6 +164,17 @@ VITE_ENVIRONMENT=production
 - `archive/ecs-infrastructure/`: infraestrutura Docker/ECS antiga
 - `archive/README.md`: documentação da migração
 - Mantidos para referência e possível rollback de emergência
+
+## Organização de Arquivos
+- `docs/`: documentação do projeto (AWS_RESOURCES.md, CONFIGURACAO_API.md, etc.)
+- `scripts/`: scripts utilitários (setup-s3-cloudfront.sh, verify-api-config.sh)
+- `src/`: código fonte da aplicação
+- `archive/`: arquivos arquivados da infraestrutura anterior
+
+## Scripts Utilitários
+- `npm run aws:setup`: Setup da infraestrutura S3 + CloudFront
+- `npm run aws:verify`: Verificação da configuração da API Gateway
+- `./scripts/verify-api-config.sh`: Script standalone de verificação
 
 ## Node.js Requirements
 - **Versão obrigatória**: Node.js 20+ (necessário para Vite 7)
