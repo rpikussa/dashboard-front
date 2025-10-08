@@ -8,17 +8,19 @@ Este documento explica como configurar e usar variáveis de ambiente no projeto 
 Usado durante o desenvolvimento local:
 ```bash
 VITE_API_URL=http://localhost:3000
-VITE_APP_TITLE=Dashboard Admin
+VITE_APP_TITLE="Dashboard Admin"
 ```
 
 ### `.env.production`
 Usado durante o build de produção:
 ```bash
 VITE_API_URL=https://c10rgiry67.execute-api.us-east-1.amazonaws.com/prod
-VITE_APP_TITLE=Dashboard Admin
+VITE_APP_TITLE="Dashboard Admin"
 VITE_APP_VERSION=1.0.0
 VITE_ENVIRONMENT=production
 ```
+
+**⚠️ Importante**: Valores com espaços devem estar entre aspas para evitar erros de parsing no shell.
 
 ## Scripts Disponíveis
 
@@ -64,6 +66,20 @@ O workflow do GitHub Actions (`deploy-s3-cloudfront.yml`) agora:
 - `VITE_ENVIRONMENT`: Ambiente (production/development)
 
 ## Troubleshooting
+
+### Erro "command not found" no CI/CD
+Se você receber erros como `.env.production: line 2: Admin: command not found`:
+
+**Causa**: Valores com espaços sem aspas no arquivo `.env`
+```bash
+# ❌ Errado - causa erro de parsing
+VITE_APP_TITLE=Dashboard Admin
+
+# ✅ Correto - valor entre aspas
+VITE_APP_TITLE="Dashboard Admin"
+```
+
+**Solução**: Sempre coloque valores com espaços entre aspas nos arquivos `.env`.
 
 ### Variáveis não carregadas
 Se as variáveis não estão sendo carregadas:

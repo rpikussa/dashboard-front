@@ -26,16 +26,20 @@ while IFS= read -r line || [ -n "$line" ]; do
         continue
     fi
     
-    # Export the variable
+    # Export the variable (more robust parsing)
     if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
         var_name="${BASH_REMATCH[1]}"
         var_value="${BASH_REMATCH[2]}"
         
-        # Remove quotes if present
-        var_value=$(echo "$var_value" | sed 's/^["'\'']\|["'\'']$//g')
+        # Remove leading/trailing quotes if present (handles both single and double quotes)
+        var_value=$(echo "$var_value" | sed 's/^[[:space:]]*["'\'']\|["'\''][[:space:]]*$//g')
         
+        # Export the variable safely
         export "$var_name"="$var_value"
-        echo "✅ $var_name=$var_value"
+        echo "✅ $var_name=\"$var_value\""
+    else
+        # Log lines that don't match the expected format
+        echo "⚠️  Skipping invalid line: $line"
     fi
 done < "$ENV_FILE"
 
