@@ -36,6 +36,24 @@ npm run aws:verify
 - Valida se o build contém a URL correta da API
 - Exibe status geral da configuração
 
+### 🔧 `load-env.sh`
+**Descrição**: Script para carregar variáveis de ambiente de forma consistente
+
+**Uso**:
+```bash
+./scripts/load-env.sh production
+./scripts/load-env.sh development
+# ou
+npm run env:load production
+npm run env:load development
+```
+
+**O que faz**:
+- Carrega variáveis de ambiente do arquivo especificado
+- Valida se as variáveis foram carregadas corretamente
+- Exporta variáveis para o ambiente atual
+- Usado tanto no desenvolvimento local quanto no CI/CD
+
 ## Scripts Disponíveis via npm
 
 Você pode executar os scripts através do npm para maior conveniência:
@@ -47,7 +65,15 @@ npm run aws:setup
 # Verificação da configuração da API
 npm run aws:verify
 
-# Build de produção
+# Carregar variáveis de ambiente
+npm run env:load production
+npm run env:load development
+
+# Build com environment específico
+npm run build:production    # Carrega .env.production automaticamente
+npm run build:development   # Carrega .env.development automaticamente
+
+# Build padrão
 npm run build
 
 # Desenvolvimento local

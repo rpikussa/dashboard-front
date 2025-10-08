@@ -9,12 +9,15 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
+        "build:production": "source ./scripts/load-env.sh production && npm run build",
+        "build:development": "source ./scripts/load-env.sh development && npm run build",
         "preview": "vite preview",
         "test:unit": "vitest",
         "lint": "eslint . --fix",
         "format": "prettier --write src/",
         "aws:setup": "./scripts/setup-s3-cloudfront.sh",
         "aws:verify": "./scripts/verify-api-config.sh",
+        "env:load": "./scripts/load-env.sh",
         "deploy:staging": "npm run build",
         "deploy:production": "echo 'Use GitHub Actions for S3 + CloudFront deployment'"
     },

@@ -112,16 +112,105 @@ jobs:
     - name: 🧪 Run tests
       run: npm run test:unit
 
+    - name: 🔧 Load production environment variables
+      run: |
+        echo "📋 Loading production environment variables..."
+        
+        # Make script executable
+        chmod +x ./scripts/load-env.sh
+        
+        # Load environment variables using our script
+        if [ -f .env.production ]; then
+          echo "✅ .env.production found, loading variables..."
+          
+          # Load variables from .env.production
+          set -a
+          source .env.production
+          set +a
+          
+          echo "🔍 Production environment variables loaded:"
+          echo "VITE_API_URL=${VITE_API_URL:-'not set'}"
+          echo "VITE_APP_TITLE=${VITE_APP_TITLE:-'not set'}"
+          echo "VITE_APP_VERSION=${VITE_APP_VERSION:-'not set'}"
+          echo "VITE_ENVIRONMENT=${VITE_ENVIRONMENT:-'not set'}"
+          
+          # Save to GitHub ENV for subsequent steps
+          echo "VITE_API_URL=$VITE_API_URL" >> $GITHUB_ENV
+          echo "VITE_APP_TITLE=$VITE_APP_TITLE" >> $GITHUB_ENV
+          echo "VITE_APP_VERSION=$VITE_APP_VERSION" >> $GITHUB_ENV
+          echo "VITE_ENVIRONMENT=$VITE_ENVIRONMENT" >> $GITHUB_ENV
+          
+          # Additional validation
+          if [ -z "$VITE_API_URL" ]; then
+            echo "⚠️  VITE_API_URL is empty, using fallback"
+            echo "VITE_API_URL=https://c10rgiry67.execute-api.us-east-1.amazonaws.com/prod" >> $GITHUB_ENV
+          fi
+          
+        else
+          echo "⚠️  .env.production not found, using fallback values..."
+          echo "VITE_API_URL=https://c10rgiry67.execute-api.us-east-1.amazonaws.com/prod" >> $GITHUB_ENV
+          echo "VITE_APP_TITLE=Dashboard Admin" >> $GITHUB_ENV
+          echo "VITE_APP_VERSION=1.0.0" >> $GITHUB_ENV
+          echo "VITE_ENVIRONMENT=production" >> $GITHUB_ENV
+        fi
+
     - name: 🏗️ Build application
-      run: npm run build
+      run: |
+        echo "🔨 Building application with production environment..."
+        echo "Using environment variables:"
+        echo "VITE_API_URL=$VITE_API_URL"
+        echo "VITE_APP_TITLE=$VITE_APP_TITLE"
+        echo "VITE_APP_VERSION=$VITE_APP_VERSION"
+        echo "VITE_ENVIRONMENT=$VITE_ENVIRONMENT"
+        npm run build
 
     - name: 📊 Display build stats
       run: |
         echo "📦 Build completed successfully!"
+        echo ""
+        echo "🔧 Environment Configuration:"
+        echo "API URL: $VITE_API_URL"
+        echo "App Title: $VITE_APP_TITLE"
+        echo "App Version: $VITE_APP_VERSION"
+        echo "Environment: $VITE_ENVIRONMENT"
+        echo ""
         echo "📁 Build size:"
         du -sh dist/
+        echo ""
         echo "📄 Generated files:"
         find dist/ -type f -name "*.js" -o -name "*.css" -o -name "*.html" | head -10
+        echo ""
+        echo "🔍 Build artifacts summary:"
+        echo "JavaScript files: $(find dist/ -name "*.js" | wc -l)"
+        echo "CSS files: $(find dist/ -name "*.css" | wc -l)"
+        echo "Asset files: $(find dist/assets/ -type f | wc -l)"
+
+    - name: 🔍 Verify environment variables in build
+      run: |
+        echo "🔍 Verifying environment variables were properly included in build..."
+        
+        # Check if API URL is present in the built files
+        if grep -r "$VITE_API_URL" dist/ > /dev/null 2>&1; then
+          echo "✅ API URL found in build files"
+        else
+          echo "⚠️  API URL not found in build files - this might be normal if it's dynamically loaded"
+        fi
+        
+        # Check if app title is present
+        if grep -r "$VITE_APP_TITLE" dist/ > /dev/null 2>&1; then
+          echo "✅ App title found in build files"
+        else
+          echo "⚠️  App title not found in build files"
+        fi
+        
+        # Verify index.html exists and has content
+        if [ -f "dist/index.html" ]; then
+          echo "✅ index.html generated successfully"
+          echo "📄 index.html size: $(du -h dist/index.html | cut -f1)"
+        else
+          echo "❌ index.html not found!"
+          exit 1
+        fi
 
     - name: 🔐 Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -192,6 +281,12 @@ jobs:
         echo "🌐 S3 Website: http://${{ needs.infrastructure.outputs.s3-bucket }}.s3-website-us-east-1.amazonaws.com"
         echo "📦 Build size: $(du -sh dist/ | cut -f1)"
         echo "⏰ Deploy time: $(date)"
+        echo ""
+        echo "🔧 Environment Configuration:"
+        echo "🔗 API URL: $VITE_API_URL"
+        echo "🏷️  App Title: $VITE_APP_TITLE"
+        echo "📋 App Version: $VITE_APP_VERSION"
+        echo "🌍 Environment: $VITE_ENVIRONMENT"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
         echo "✅ Frontend deployed successfully!"
