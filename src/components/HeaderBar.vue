@@ -26,12 +26,13 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, CaretBottom } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth.js'
+import { configService } from '@/services/config'
 
 // Props para personalizar o componente
 const props = defineProps({
   title: {
     type: String,
-    default: 'Dashboard'
+    default: configService.getAppTitle()
   },
   userName: {
     type: String,
@@ -45,9 +46,15 @@ const authStore = useAuthStore()
 const handleCommand = (command) => {
   switch (command) {
     case 'profile':
+      if (configService.isDevelopment()) {
+        console.log('👤 Navegando para perfil...')
+      }
       router.push('/profile')
       break
     case 'logout':
+      if (configService.isDevelopment()) {
+        console.log('🔓 Fazendo logout via header...')
+      }
       authStore.logout()
       ElMessage.success('Logout realizado com sucesso!')
       break

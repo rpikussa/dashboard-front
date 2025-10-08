@@ -32,7 +32,7 @@
       <el-container>
         <!-- Header -->
         <el-header class="header">
-          <HeaderBar title="Financial Dashboard" />
+          <HeaderBar :title="appTitle" />
         </el-header>
 
         <!-- Content -->
@@ -97,6 +97,21 @@
             </el-row>
           </div>
 
+          <!-- Debug Info (apenas em desenvolvimento) -->
+          <div v-if="isDev" class="debug-info">
+            <el-card>
+              <template #header>
+                <span>🔧 Debug Info</span>
+              </template>
+              <div class="debug-content">
+                <p><strong>Ambiente:</strong> {{ environment }}</p>
+                <p><strong>Versão:</strong> {{ appVersion }}</p>
+                <p><strong>API URL:</strong> {{ apiUrl }}</p>
+                <p><strong>Modo:</strong> {{ mode }}</p>
+              </div>
+            </el-card>
+          </div>
+
           <!-- Charts Section -->
           <el-row :gutter="20" class="charts-section">
             <el-col :span="12">
@@ -153,9 +168,28 @@ import {
   Money
 } from '@element-plus/icons-vue'
 import HeaderBar from '@/components/HeaderBar.vue'
+import { configService } from '@/services/config'
 
 const route = useRoute()
 const activeMenu = ref(route.path)
+
+// Configurações da aplicação
+const appTitle = configService.getAppTitle()
+const appVersion = configService.getAppVersion()
+const environment = configService.getEnvironment()
+const apiUrl = configService.getApiUrl()
+const mode = configService.get('MODE')
+const isDev = configService.isDevelopment()
+
+// Log das configurações em desenvolvimento
+if (isDev) {
+  console.log('📊 Dashboard carregado:', {
+    title: appTitle,
+    version: appVersion,
+    environment,
+    apiUrl
+  })
+}
 </script>
 
 <style scoped>
@@ -246,6 +280,20 @@ const activeMenu = ref(route.path)
 
 .charts-section {
   margin-top: 20px;
+}
+
+.debug-info {
+  margin-bottom: 20px;
+}
+
+.debug-content {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.debug-content p {
+  margin: 5px 0;
+  padding: 2px 0;
 }
 
 .chart-placeholder {

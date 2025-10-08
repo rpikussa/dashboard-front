@@ -80,10 +80,19 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Message } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth.js'
+import { configService } from '@/services/config'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const registerFormRef = ref()
+
+// Log de configuração em desenvolvimento
+if (configService.isDevelopment()) {
+  console.log('📝 RegisterView carregada:', {
+    apiUrl: configService.getApiUrl(),
+    environment: configService.getEnvironment()
+  })
+}
 
 const registerForm = reactive({
   name: '',

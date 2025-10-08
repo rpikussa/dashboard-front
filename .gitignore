@@ -26,6 +26,9 @@ build
 .env.test.local
 .env.production.local
 
+# Nota: .env.development e .env.production são versionados intencionalmente
+# .env.example é o template para novos ambientes
+
 # Runtime data
 pids
 *.pid

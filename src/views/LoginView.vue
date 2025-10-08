@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
-        <h2>Dashboard Login</h2>
+        <h2>{{ appTitle }}</h2>
         <p>Entre com suas credenciais</p>
       </div>
       
@@ -60,10 +60,14 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth.js'
+import { configService } from '@/services/config'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const loginFormRef = ref()
+
+// Configurações da aplicação
+const appTitle = configService.getAppTitle()
 
 const loginForm = reactive({
   email: '',

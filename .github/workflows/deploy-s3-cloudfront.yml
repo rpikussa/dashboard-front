@@ -1,4 +1,4 @@
-name: Deploy Frontend to AWS S3 + CloudFront
+name: Frontend Deployment to AWS S3 + CloudFront
 
 on:
   push:
@@ -107,86 +107,40 @@ jobs:
         cache: 'npm'
 
     - name: 📦 Install dependencies
-      run: npm ci
+      run: |
+        echo "📥 Installing dependencies..."
+        npm ci --prefer-offline --no-audit
+        echo "✅ Dependencies installed successfully"
 
     - name: 🧪 Run tests
       run: npm run test:unit
 
-    - name: 🔧 Load production environment variables
+    - name: 🔧 Verify environment configuration
       run: |
-        echo "📋 Loading production environment variables..."
+        echo "📋 Verifying environment configuration..."
         
-        # Make script executable
-        chmod +x ./scripts/load-env.sh
-        
-        # Load environment variables using safer method
         if [ -f .env.production ]; then
-          echo "✅ .env.production found, loading variables..."
-          
-          # Load variables using a safer method to avoid shell interpretation issues
-          while IFS= read -r line || [ -n "$line" ]; do
-            # Skip empty lines and comments
-            if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
-              continue
-            fi
-            
-            # Parse variable assignment
-            if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
-              var_name="${BASH_REMATCH[1]}"
-              var_value="${BASH_REMATCH[2]}"
-              
-              # Remove leading/trailing quotes if present
-              var_value=$(echo "$var_value" | sed 's/^[[:space:]]*["'\'']\|["'\''][[:space:]]*$//g')
-              
-              # Export and save to GitHub ENV
-              export "$var_name"="$var_value"
-              echo "$var_name=$var_value" >> $GITHUB_ENV
-              echo "✅ Loaded: $var_name=\"$var_value\""
-            fi
-          done < .env.production
-          
-          echo ""
-          echo "🔍 Production environment variables summary:"
-          echo "VITE_API_URL=${VITE_API_URL:-'not set'}"
-          echo "VITE_APP_TITLE=${VITE_APP_TITLE:-'not set'}"
-          echo "VITE_APP_VERSION=${VITE_APP_VERSION:-'not set'}"
-          echo "VITE_ENVIRONMENT=${VITE_ENVIRONMENT:-'not set'}"
-          
-          # Additional validation
-          if [ -z "$VITE_API_URL" ]; then
-            echo "⚠️  VITE_API_URL is empty, using fallback"
-            echo "VITE_API_URL=https://c10rgiry67.execute-api.us-east-1.amazonaws.com/prod" >> $GITHUB_ENV
-          fi
-          
+          echo "✅ .env.production found"
+          cat .env.production
         else
-          echo "⚠️  .env.production not found, using fallback values..."
-          echo "VITE_API_URL=https://c10rgiry67.execute-api.us-east-1.amazonaws.com/prod" >> $GITHUB_ENV
-          echo "VITE_APP_TITLE=Dashboard Admin" >> $GITHUB_ENV
-          echo "VITE_APP_VERSION=1.0.0" >> $GITHUB_ENV
-          echo "VITE_ENVIRONMENT=production" >> $GITHUB_ENV
+          echo "❌ .env.production not found!"
+          exit 1
         fi
+        
+        echo ""
+        echo "🔍 Environment will be automatically loaded by Vite during build"
 
     - name: 🏗️ Build application
       run: |
         echo "🔨 Building application with production environment..."
-        echo "Using environment variables:"
-        echo "VITE_API_URL=$VITE_API_URL"
-        echo "VITE_APP_TITLE=$VITE_APP_TITLE"
-        echo "VITE_APP_VERSION=$VITE_APP_VERSION"
-        echo "VITE_ENVIRONMENT=$VITE_ENVIRONMENT"
+        echo "Vite will automatically load variables from .env.production"
         npm run build
 
     - name: 📊 Display build stats
       run: |
         echo "📦 Build completed successfully!"
         echo ""
-        echo "🔧 Environment Configuration:"
-        echo "API URL: $VITE_API_URL"
-        echo "App Title: $VITE_APP_TITLE"
-        echo "App Version: $VITE_APP_VERSION"
-        echo "Environment: $VITE_ENVIRONMENT"
-        echo ""
-        echo "📁 Build size:"
+        echo " Build size:"
         du -sh dist/
         echo ""
         echo "📄 Generated files:"
@@ -197,23 +151,9 @@ jobs:
         echo "CSS files: $(find dist/ -name "*.css" | wc -l)"
         echo "Asset files: $(find dist/assets/ -type f | wc -l)"
 
-    - name: 🔍 Verify environment variables in build
+    - name: 🔍 Verify configuration in build
       run: |
-        echo "🔍 Verifying environment variables were properly included in build..."
-        
-        # Check if API URL is present in the built files
-        if grep -r "$VITE_API_URL" dist/ > /dev/null 2>&1; then
-          echo "✅ API URL found in build files"
-        else
-          echo "⚠️  API URL not found in build files - this might be normal if it's dynamically loaded"
-        fi
-        
-        # Check if app title is present
-        if grep -r "$VITE_APP_TITLE" dist/ > /dev/null 2>&1; then
-          echo "✅ App title found in build files"
-        else
-          echo "⚠️  App title not found in build files"
-        fi
+        echo "🔍 Verifying build configuration..."
         
         # Verify index.html exists and has content
         if [ -f "dist/index.html" ]; then
@@ -222,6 +162,21 @@ jobs:
         else
           echo "❌ index.html not found!"
           exit 1
+        fi
+        
+        # Check for main JS files (these contain our config)
+        JS_FILES=$(find dist/assets/ -name "index-*.js" | head -1)
+        if [ -n "$JS_FILES" ]; then
+          echo "✅ Main JavaScript bundle found: $(basename $JS_FILES)"
+          
+          # Verify environment configuration is embedded
+          if grep -q "c10rgiry67.execute-api.us-east-1.amazonaws.com" "$JS_FILES"; then
+            echo "✅ API URL correctly embedded in build"
+          else
+            echo "⚠️  API URL not found in main bundle"
+          fi
+        else
+          echo "⚠️  Main JavaScript bundle not found"
         fi
 
     - name: 🔐 Configure AWS credentials
