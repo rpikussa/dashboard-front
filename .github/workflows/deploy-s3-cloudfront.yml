@@ -38,35 +38,41 @@ jobs:
     - name: 🏗️ Setup Infrastructure (Create if not exists)
       id: setup-infra
       run: |
-        # Check if S3 bucket exists (from secrets or create new)
-        S3_BUCKET="$S3_BUCKET"
-        if [ -n "$S3_BUCKET" ]; then
-          echo "📦 Using existing S3 bucket: $S3_BUCKET"
+        # =========================
+        # S3 Bucket Resolution
+        # Prioridades:
+        # 1. Secret S3_BUCKET
+        # 2. Variável já exportada no ambiente
+        # 3. Nome determinístico baseado no projeto
+        # =========================
+        if [ -n "${{ secrets.S3_BUCKET }}" ]; then
+          S3_BUCKET="${{ secrets.S3_BUCKET }}"
+        elif [ -n "$S3_BUCKET" ]; then
+          S3_BUCKET="$S3_BUCKET"
         else
-          S3_BUCKET="${PROJECT_NAME}-static-$(date +%s)"
-          echo "📦 Creating new S3 bucket: $S3_BUCKET"
-          
-          # Create S3 bucket
+          # Nome determinístico (sem timestamp) para evitar recriação
+          S3_BUCKET="${PROJECT_NAME}-static"
+        fi
+
+        echo "📦 Bucket alvo: $S3_BUCKET"
+
+        # Verifica existência do bucket (head-bucket retorna 0 se existe)
+        if aws s3api head-bucket --bucket "$S3_BUCKET" 2>/dev/null; then
+          echo "✅ Reutilizando bucket existente: $S3_BUCKET"
+        else
+          echo "🆕 Bucket não existe. Criando: $S3_BUCKET"
           aws s3 mb s3://$S3_BUCKET --region ${{ env.AWS_REGION }}
-          
-          # Configure static website hosting
-          aws s3 website s3://$S3_BUCKET --index-document index.html --error-document index.html
-          
-          echo "⚠️  MANUAL STEP REQUIRED:"
-          echo "   1. Go to AWS S3 Console"
-          echo "   2. Select bucket: $S3_BUCKET"
-          echo "   3. Go to Permissions > Block public access"
-          echo "   4. Uncheck all 4 options and save"
-          echo "   5. Go to Bucket policy and add public read policy"
-          echo "   6. Add S3_BUCKET=$S3_BUCKET to GitHub secrets"
+
+          # Configura hosting estático (idempotente)
+            aws s3 website s3://$S3_BUCKET --index-document index.html --error-document index.html
+
+          echo "⚠️  Verifique as permissões públicas e política do bucket caso ainda não configurado."
         fi
 
         # Check if CloudFront distribution exists
         if [ -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
           CLOUDFRONT_ID="${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"
           echo "⚡ Using existing CloudFront distribution: $CLOUDFRONT_ID"
-          
-          # Get CloudFront domain
           CLOUDFRONT_DOMAIN=$(aws cloudfront get-distribution \
             --id $CLOUDFRONT_ID \
             --query 'Distribution.DomainName' \
@@ -77,12 +83,11 @@ jobs:
           CLOUDFRONT_DOMAIN="MANUAL_SETUP_REQUIRED"
         fi
 
-        # Output for next job
+        # Outputs
         echo "s3-bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
         echo "cloudfront-id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
         echo "cloudfront-domain=$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
-        
-        # Summary
+
         echo "🏗️ Infrastructure Status:"
         echo "📦 S3 Bucket: $S3_BUCKET"
         echo "⚡ CloudFront ID: $CLOUDFRONT_ID"
