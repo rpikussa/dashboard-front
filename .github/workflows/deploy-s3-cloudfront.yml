@@ -134,7 +134,7 @@ jobs:
       run: |
         echo "🔨 Building application with production environment..."
         echo "Vite will automatically load variables from .env.production"
-        npm run build
+        npm run build:production
 
     - name: 📊 Display build stats
       run: |
