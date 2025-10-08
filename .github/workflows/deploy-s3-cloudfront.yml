@@ -45,14 +45,22 @@ jobs:
         # 2. Variável já exportada no ambiente
         # 3. Nome determinístico baseado no projeto (dashboard-front-static-prod)
         # =========================
+        echo "🔍 Debug - Variáveis de entrada:"
+        echo "secrets.S3_BUCKET='${{ secrets.S3_BUCKET }}'"
+        echo "env.PROJECT_NAME='${{ env.PROJECT_NAME }}'"
+        echo "S3_BUCKET atual='$S3_BUCKET'"
+        
         if [ -n "${{ secrets.S3_BUCKET }}" ]; then
           S3_BUCKET="${{ secrets.S3_BUCKET }}"
+          echo "✅ Usando S3_BUCKET do secret: $S3_BUCKET"
         elif [ -n "$S3_BUCKET" ]; then
           S3_BUCKET="$S3_BUCKET"
+          echo "✅ Usando S3_BUCKET da variável de ambiente: $S3_BUCKET"
         else
           # Nome determinístico (sem timestamp) para evitar recriação
           # IMPORTANTE: Deve corresponder ao bucket existente na AWS
-          S3_BUCKET="${PROJECT_NAME}-static-prod"
+          S3_BUCKET="${{ env.PROJECT_NAME }}-static-prod"
+          echo "✅ Usando nome determinístico: $S3_BUCKET"
         fi
 
         echo "📦 Bucket alvo: $S3_BUCKET"
@@ -83,6 +91,23 @@ jobs:
           CLOUDFRONT_ID="MANUAL_SETUP_REQUIRED"
           CLOUDFRONT_DOMAIN="MANUAL_SETUP_REQUIRED"
         fi
+
+        # Debug: Verificar valores antes de definir outputs
+        echo "🔍 Debug - Valores das variáveis:"
+        echo "S3_BUCKET='$S3_BUCKET'"
+        echo "CLOUDFRONT_ID='$CLOUDFRONT_ID'"
+        echo "CLOUDFRONT_DOMAIN='$CLOUDFRONT_DOMAIN'"
+        
+        # Validação: garantir que S3_BUCKET não está vazio
+        if [ -z "$S3_BUCKET" ]; then
+          echo "❌ ERRO: S3_BUCKET está vazio!"
+          echo "PROJECT_NAME='${{ env.PROJECT_NAME }}'"
+          echo "secrets.S3_BUCKET='${{ secrets.S3_BUCKET }}'"
+          echo "Forçando fallback para nome conhecido..."
+          S3_BUCKET="dashboard-front-static-prod"
+        fi
+        
+        echo "✅ S3_BUCKET final: $S3_BUCKET"
 
         # Outputs
         echo "s3-bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
@@ -206,7 +231,18 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: 🗑️ Clean old files from S3
+    - name: � Debug Infrastructure Outputs
+      run: |
+        echo "🔍 Debugging infrastructure outputs..."
+        echo "Raw outputs from infrastructure job:"
+        echo "  s3-bucket: '${{ needs.infrastructure.outputs.s3-bucket }}'"
+        echo "  cloudfront-id: '${{ needs.infrastructure.outputs.cloudfront-id }}'"
+        echo "  cloudfront-domain: '${{ needs.infrastructure.outputs.cloudfront-domain }}'"
+        echo ""
+        echo "Needs context:"
+        echo '${{ toJSON(needs) }}'
+
+    - name: �🗑️ Clean old files from S3
       run: |
         echo "🧹 Cleaning old files from S3..."
         BUCKET_NAME="${{ needs.infrastructure.outputs.s3-bucket }}"
