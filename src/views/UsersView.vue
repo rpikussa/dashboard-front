@@ -49,15 +49,6 @@
               >
                 Atualizar
               </el-button>
-              <el-button 
-                v-if="isDev"
-                @click="showApiLimitations"
-                :icon="InfoFilled"
-                type="warning"
-                plain
-              >
-                API Info
-              </el-button>
             </div>
             
             <div class="toolbar-right">
@@ -72,23 +63,6 @@
               />
             </div>
           </div>
-
-          <!-- API Limitations Alert (Development only) -->
-          <el-alert
-            v-if="isDev"
-            title="⚠️ Modo de Desenvolvimento - Dados Simulados"
-            type="warning"
-            show-icon
-            :closable="false"
-            style="margin-bottom: 20px;"
-          >
-            <template #default>
-              A API atual tem limitações. Algumas operações são simuladas localmente.
-              <el-button type="text" @click="showApiLimitations" style="margin-left: 8px;">
-                Ver detalhes
-              </el-button>
-            </template>
-          </el-alert>
 
           <!-- Users Table -->
           <el-card class="table-card">
@@ -237,13 +211,11 @@ import {
   Search,
   Edit,
   Delete,
-  UserFilled,
-  InfoFilled
+  UserFilled
 } from '@element-plus/icons-vue'
 import HeaderBar from '@/components/HeaderBar.vue'
 import UserFormModal from '@/components/UserFormModal.vue'
 import { useUserStore } from '@/stores/users.js'
-import { userService } from '@/services/userService.js'
 import { configService } from '@/services/config.js'
 
 const route = useRoute()
@@ -263,9 +235,6 @@ const isDev = computed(() => configService.isDevelopment())
 onMounted(async () => {
   if (isDev.value) {
     console.log('👥 UsersView: Componente montado, carregando usuários...')
-    
-    // Log limitações da API em desenvolvimento
-    userService.logApiLimitations()
   }
   await loadUsers()
 })
@@ -341,39 +310,6 @@ const handleUserSaved = () => {
   selectedUser.value = null
   // Recarregar lista após salvar
   loadUsers()
-}
-
-const showApiLimitations = () => {
-  const limitations = userService.getApiLimitations()
-  
-  const content = `
-    <div style="text-align: left; max-height: 400px; overflow-y: auto;">
-      <h4>📍 Endpoints Disponíveis:</h4>
-      <ul>
-        ${limitations.availableEndpoints.map(endpoint => `<li>${endpoint}</li>`).join('')}
-      </ul>
-      
-      <h4>❌ Endpoints em Falta:</h4>
-      <ul>
-        ${limitations.missingEndpoints.map(endpoint => `<li>${endpoint}</li>`).join('')}
-      </ul>
-      
-      <h4>🔧 Operações Simuladas:</h4>
-      <ul>
-        ${limitations.simulatedOperations.map(op => `<li>${op}</li>`).join('')}
-      </ul>
-      
-      <h4>💡 Recomendações:</h4>
-      <ul>
-        ${limitations.recommendations.map(rec => `<li>${rec}</li>`).join('')}
-      </ul>
-    </div>
-  `
-  
-  ElMessageBox.alert(content, 'Limitações da API Atual', {
-    dangerouslyUseHTMLString: true,
-    confirmButtonText: 'Entendi'
-  })
 }
 
 const handleSortChange = ({ column, prop, order }) => {
