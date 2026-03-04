@@ -121,16 +121,16 @@
               </el-table-column>
               
               <el-table-column 
-                prop="status" 
+                prop="isActive" 
                 label="Status"
                 width="100"
               >
                 <template #default="{ row }">
                   <el-tag 
-                    :type="row.status === 'active' ? 'success' : 'danger'"
+                    :type="row.isActive ? 'success' : 'danger'"
                     size="small"
                   >
-                    {{ row.status === 'active' ? 'Ativo' : 'Inativo' }}
+                    {{ row.isActive ? 'Ativo' : 'Inativo' }}
                   </el-tag>
                 </template>
               </el-table-column>

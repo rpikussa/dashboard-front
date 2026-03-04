@@ -280,7 +280,7 @@ const initializeForm = async () => {
       password: '',
       confirmPassword: '',
       role: props.user.role || 'user',
-      status: props.user.status || 'active',
+      status: props.user.isActive !== false ? 'active' : 'inactive',
       phone: props.user.phone || '',
       department: props.user.department || '',
       bio: props.user.bio || ''
@@ -343,7 +343,7 @@ const handleSubmit = async () => {
       name: formData.value.name.trim(),
       email: formData.value.email.trim(),
       role: formData.value.role,
-      status: formData.value.status,
+      isActive: formData.value.status === 'active',
       phone: formData.value.phone.trim(),
       department: formData.value.department.trim(),
       bio: formData.value.bio.trim()
